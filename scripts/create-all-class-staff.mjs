@@ -16,18 +16,10 @@ import { createClient } from '@supabase/supabase-js'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { GRADE_LABELS } from './grade-labels.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const FORCE = process.argv.includes('--force')
-
-const GRADE_LABELS = {
-  1: 'الأول الابتدائي',
-  2: 'الثاني الابتدائي',
-  3: 'الثالث الابتدائي',
-  4: 'الرابع الابتدائي',
-  5: 'الخامس الابتدائي',
-  6: 'السادس الابتدائي',
-}
 
 const SECTION_ORDER = { أ: 0, ب: 1, ج: 2, د: 3 }
 
@@ -64,7 +56,7 @@ function credentialsFor(index) {
 }
 
 function fullNameFor(grade, section) {
-  return `مشرف الصف ${GRADE_LABELS[grade] ?? grade} — ${section}`
+  return `شاشة ${GRADE_LABELS[grade] ?? grade} — ${section}`
 }
 
 function sortClasses(classes) {

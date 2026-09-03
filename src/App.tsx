@@ -1,29 +1,23 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { InstallPrompt } from './components/InstallPrompt'
+import { AppUpdatePrompt } from './components/AppUpdatePrompt'
 import { OfflineBanner } from './components/OfflineBanner'
 import { ProtectedRoute, PublicOnly } from './components/ProtectedRoute'
 import { listenNativeLaunchPath, consumeNativeLaunchPath } from './lib/backgroundMonitor'
 import { LoginPage } from './pages/LoginPage'
-import { ParentRegisterPage } from './pages/ParentRegisterPage'
 import { SetupAdminPage } from './pages/SetupAdminPage'
-import { ParentLayout } from './pages/parent/ParentLayout'
-import { ParentHomePage } from './pages/parent/ParentHomePage'
-import { ParentChildrenPage } from './pages/parent/ParentChildrenPage'
-import { ParentRequestsPage } from './pages/parent/ParentRequestsPage'
-import { ClassDashboardPage } from './pages/class/ClassDashboardPage'
 import { ClassDisplayPage } from './pages/display/ClassDisplayPage'
 import { LobbyDisplayPage } from './pages/display/LobbyDisplayPage'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminRequestsPage } from './pages/admin/AdminRequestsPage'
 import { AdminStudentsPage } from './pages/admin/AdminStudentsPage'
-import { AdminParentsPage } from './pages/admin/AdminParentsPage'
 import { AdminClassesPage } from './pages/admin/AdminClassesPage'
-import { AdminStaffPage } from './pages/admin/AdminStaffPage'
 import { AdminImportPage } from './pages/admin/AdminImportPage'
 import { AdminGuidePage } from './pages/admin/AdminGuidePage'
-import { AdminWhatsAppPage } from './pages/admin/AdminWhatsAppPage'
+import { AdminGatePage } from './pages/admin/AdminGatePage'
+import { GatePage } from './pages/gate/GatePage'
 
 function NativeLaunchListener() {
   const navigate = useNavigate()
@@ -51,37 +45,17 @@ export default function App() {
             </PublicOnly>
           }
         />
-        <Route
-          path="/register"
-          element={
-            <PublicOnly>
-              <ParentRegisterPage />
-            </PublicOnly>
-          }
-        />
         <Route path="/setup" element={<SetupAdminPage />} />
 
         <Route
-          path="/parent"
+          path="/gate"
           element={
-            <ProtectedRoute roles={['PARENT']}>
-              <ParentLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<ParentHomePage />} />
-          <Route path="children" element={<ParentChildrenPage />} />
-          <Route path="requests" element={<ParentRequestsPage />} />
-        </Route>
-
-        <Route
-          path="/class"
-          element={
-            <ProtectedRoute roles={['CLASS_STAFF']}>
-              <ClassDashboardPage />
+            <ProtectedRoute roles={['GATE_OFFICER']}>
+              <GatePage />
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/display/class"
           element={
@@ -90,6 +64,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/class" element={<Navigate to="/display/class" replace />} />
         <Route
           path="/display/lobby"
           element={
@@ -110,18 +85,19 @@ export default function App() {
           <Route index element={<AdminDashboardPage />} />
           <Route path="requests" element={<AdminRequestsPage />} />
           <Route path="students" element={<AdminStudentsPage />} />
-          <Route path="parents" element={<AdminParentsPage />} />
           <Route path="classes" element={<AdminClassesPage />} />
-          <Route path="staff" element={<AdminStaffPage />} />
           <Route path="import" element={<AdminImportPage />} />
           <Route path="guide" element={<AdminGuidePage />} />
-          <Route path="whatsapp" element={<AdminWhatsAppPage />} />
+          <Route path="gate" element={<AdminGatePage />} />
+          <Route path="staff" element={<Navigate to="/admin/classes" replace />} />
+          <Route path="whatsapp" element={<Navigate to="/admin/classes" replace />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
       <InstallPrompt />
+      <AppUpdatePrompt />
     </>
   )
 }

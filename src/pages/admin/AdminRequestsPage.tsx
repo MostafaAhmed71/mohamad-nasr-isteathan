@@ -6,6 +6,7 @@ import {
   STATUS_LABELS,
   classLabel,
   formatDateTime,
+  requestOriginLabel,
   type PermissionRequest,
   type RequestStatus,
   type SchoolClass,
@@ -28,7 +29,7 @@ export function AdminRequestsPage() {
         supabase
           .from('permission_requests')
           .select(
-            '*, students(full_name, grade), classes(*), profiles:guardian_id(full_name)',
+            '*, students(full_name, grade), classes(*), gate_officer:profiles!created_by(full_name)',
           )
           .order('created_at', { ascending: false })
           .limit(200),
@@ -44,8 +45,8 @@ export function AdminRequestsPage() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const studentName = r.students?.full_name ?? ''
-      const parentName = r.profiles?.full_name ?? ''
-      if (q && !`${studentName} ${parentName}`.includes(q.trim())) return false
+      const origin = requestOriginLabel(r)
+      if (q && !`${studentName} ${origin}`.includes(q.trim())) return false
       if (grade && String(r.classes?.grade ?? r.students?.grade) !== grade) return false
       if (classId && r.class_id !== classId) return false
       if (status && r.status !== status) return false
@@ -65,7 +66,7 @@ export function AdminRequestsPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-[var(--color-gold)]">الطلبات</h1>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <TextField label="بحث (طالب / ولي أمر)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <TextField label="بحث (طالب / مصدر)" value={q} onChange={(e) => setQ(e.target.value)} />
         <SelectField label="الصف" value={grade} onChange={(e) => { setGrade(e.target.value); setClassId('') }}>
           <option value="">الكل</option>
           {[1, 2, 3, 4, 5, 6].map((g) => (
@@ -96,7 +97,7 @@ export function AdminRequestsPage() {
         <table className="min-w-full text-sm">
           <thead className="bg-[rgba(15,42,92,0.35)] text-[var(--color-muted)]">
             <tr>
-              {['الطالب', 'الصف', 'الفصل', 'ولي الأمر', 'السبب', 'الحالة', 'وقت الطلب', 'وقت القرار'].map((h) => (
+              {['الطالب', 'الصف', 'الفصل', 'المصدر', 'الحالة', 'وقت الطلب', 'وقت القرار'].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2 text-right font-semibold">{h}</th>
               ))}
             </tr>
@@ -107,8 +108,7 @@ export function AdminRequestsPage() {
                 <td className="px-3 py-2">{r.students?.full_name}</td>
                 <td className="px-3 py-2">{r.classes ? GRADE_LABELS[r.classes.grade] : '—'}</td>
                 <td className="px-3 py-2">{r.classes?.section ?? '—'}</td>
-                <td className="px-3 py-2">{r.profiles?.full_name}</td>
-                <td className="max-w-48 truncate px-3 py-2">{r.reason}</td>
+                <td className="px-3 py-2">{requestOriginLabel(r)}</td>
                 <td className="px-3 py-2"><StatusBadge status={r.status} /></td>
                 <td className="whitespace-nowrap px-3 py-2">{formatDateTime(r.created_at)}</td>
                 <td className="whitespace-nowrap px-3 py-2">
@@ -119,7 +119,6 @@ export function AdminRequestsPage() {
           </tbody>
         </table>
       </div>
-      {/* keep SECTIONS referenced for tree-shaking clarity in filters elsewhere */}
       <span className="hidden">{SECTIONS.join('')}</span>
     </div>
   )

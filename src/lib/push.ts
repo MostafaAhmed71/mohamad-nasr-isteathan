@@ -82,7 +82,7 @@ async function savePushSubscription(userId: string): Promise<{ ok: boolean; mess
         ok: false,
         message:
           error.message.includes('does not exist') || error.code === '42P01'
-            ? 'جدول الإشعارات غير موجود. نفّذ ملف 008_push_subscriptions.sql في Supabase.'
+            ? 'جدول الإشعارات غير موجود. نفّذ ملف supabase/migrations/004_notifications.sql في Supabase.'
             : `تعذر حفظ الجهاز: ${error.message}`,
       }
     }
@@ -127,7 +127,7 @@ async function savePushSubscription(userId: string): Promise<{ ok: boolean; mess
 }
 
 /** Enable permission + subscribe this device for background Web Push. */
-export async function enableParentPushNotifications(): Promise<PushEnableResult> {
+export async function enablePushNotifications(): Promise<PushEnableResult> {
   const permission = await ensureNotificationPermission(true)
   if (permission !== 'granted') {
     return {
@@ -169,7 +169,7 @@ export async function enableParentPushNotifications(): Promise<PushEnableResult>
   }
 }
 
-/** Quietly refresh subscription whenever parent opens the app. */
+/** Quietly refresh subscription whenever the user opens the app. */
 export async function refreshPushSubscriptionSilent(): Promise<boolean> {
   if (typeof window === 'undefined') return false
   if (isNativeApp()) return false
@@ -183,30 +183,6 @@ export async function refreshPushSubscriptionSilent(): Promise<boolean> {
 
   const saved = await savePushSubscription(user.id)
   return saved.ok
-}
-
-async function notifyWhatsApp(
-  requestId: string,
-  event: 'created' | 'decision',
-  token: string,
-) {
-  try {
-    const res = await fetch('/api/whatsapp-notify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ request_id: requestId, event }),
-    })
-    const contentType = res.headers.get('content-type') ?? ''
-    if (res.ok && contentType.includes('application/json')) return
-    await supabase.functions.invoke('whatsapp-notify', {
-      body: { request_id: requestId, event },
-    })
-  } catch (err) {
-    console.error('[whatsapp] notify failed (request already saved)', err)
-  }
 }
 
 async function postNotify(
@@ -255,49 +231,6 @@ async function withRetries(
   return last
 }
 
-export async function notifyGuardianOfDecision(
-  requestId: string,
-): Promise<NotifyDecisionResult> {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session?.access_token) {
-      return { sent: 0, error: 'no_session' }
-    }
-    const token = session.access_token
-
-    const local = await withRetries(() =>
-      postNotify('/api/notify-decision', { request_id: requestId }, token),
-    )
-    void notifyWhatsApp(requestId, 'decision', token)
-
-    if (local.sent > 0 || local.reason === 'no_subscriptions') {
-      return local
-    }
-
-    const { data, error } = await supabase.functions.invoke('notify-decision', {
-      body: { request_id: requestId },
-    })
-    if (!error) {
-      const payload = data as { sent?: number; reason?: string } | null
-      if ((payload?.sent ?? 0) > 0 || payload?.reason === 'no_subscriptions') {
-        return { sent: payload?.sent ?? 0, reason: payload?.reason }
-      }
-    }
-
-    return local.error
-      ? local
-      : { sent: 0, error: error?.message ?? 'notify_failed' }
-  } catch (err) {
-    console.error('notify-decision invoke failed', err)
-    return {
-      sent: 0,
-      error: err instanceof Error ? err.message : 'notify_failed',
-    }
-  }
-}
-
 export async function notifyStaffOfNewRequest(
   requestId: string,
 ): Promise<NotifyDecisionResult> {
@@ -306,8 +239,6 @@ export async function notifyStaffOfNewRequest(
       data: { session },
     } = await supabase.auth.getSession()
     if (!session?.access_token) return { sent: 0, error: 'no_session' }
-
-    void notifyWhatsApp(requestId, 'created', session.access_token)
 
     return withRetries(() =>
       postNotify('/api/notify-new-request', { request_id: requestId }, session.access_token),

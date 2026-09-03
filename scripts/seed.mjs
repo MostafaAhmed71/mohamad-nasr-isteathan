@@ -79,26 +79,31 @@ async function main() {
       full_name: 'مدير المدرسة',
       role: 'ADMIN',
       username: 'admin',
-      national_id: null,
       phone: null,
     },
   })
 
-  const staffUsers = []
+  const { data: allClasses, error: allClassErr } = await admin.from('classes').select('*').order('grade').order('section')
+  if (allClassErr) throw allClassErr
+  const classIndex = (grade, section) =>
+    allClasses.findIndex((c) => c.grade === grade && c.section === section) + 1
+
+  const displayUsers = []
   for (const s of [
-    { username: 'staff3b', name: 'معلم الثالث ب', grade: 3, section: 'ب' },
-    { username: 'staff5a', name: 'معلم الخامس أ', grade: 5, section: 'أ' },
-    { username: 'staff1a', name: 'معلم الأول أ', grade: 1, section: 'أ' },
+    { grade: 1, section: 'أ', name: 'شاشة الأول المتوسط أ' },
+    { grade: 3, section: 'ب', name: 'شاشة الثالث المتوسط ب' },
+    { grade: 5, section: 'أ', name: 'شاشة الثاني الثانوي أ' },
   ]) {
-    staffUsers.push(
+    const idx = classIndex(s.grade, s.section)
+    const username = `c${idx}`
+    displayUsers.push(
       await ensureUser({
-        email: `${s.username}@staff.isteathan.local`,
-        password: 'Staff123!',
+        email: `${username}@g.com`,
+        password: 'c123456',
         profile: {
           full_name: s.name,
           role: 'CLASS_STAFF',
-          username: s.username,
-          national_id: null,
+          username,
           phone: null,
         },
         classAssign: { grade: s.grade, section: s.section },
@@ -106,27 +111,25 @@ async function main() {
     )
   }
 
-  const parent1 = await ensureUser({
-    email: '1000000001@parent.isteathan.local',
-    password: 'Parent123!',
+  const gate1 = await ensureUser({
+    email: 'gate1@gate.isteathan.local',
+    password: 'Gate123!',
     profile: {
-      full_name: 'محمد أحمد',
-      role: 'PARENT',
-      national_id: '1000000001',
-      username: null,
-      phone: '0500000001',
+      full_name: 'مناوب البوابة — أ',
+      role: 'GATE_OFFICER',
+      username: 'gate1',
+      phone: null,
     },
   })
 
-  const parent2 = await ensureUser({
-    email: '1000000002@parent.isteathan.local',
-    password: 'Parent123!',
+  await ensureUser({
+    email: 'gate2@gate.isteathan.local',
+    password: 'Gate123!',
     profile: {
-      full_name: 'سارة علي',
-      role: 'PARENT',
-      national_id: '1000000002',
-      username: null,
-      phone: '0500000002',
+      full_name: 'مناوب البوابة — ب',
+      role: 'GATE_OFFICER',
+      username: 'gate2',
+      phone: null,
     },
   })
 
@@ -135,9 +138,9 @@ async function main() {
   const findClass = (grade, section) => classes.find((c) => c.grade === grade && c.section === section)
 
   const studentDefs = [
-    { national_id: '2000000001', full_name: 'أحمد محمد', grade: 3, section: 'ب', guardian_id: parent1.id },
-    { national_id: '2000000002', full_name: 'خالد محمد', grade: 5, section: 'أ', guardian_id: parent1.id },
-    { national_id: '2000000003', full_name: 'نورة سارة', grade: 1, section: 'أ', guardian_id: parent2.id },
+    { national_id: '2000000001', full_name: 'أحمد محمد', grade: 3, section: 'ب' },
+    { national_id: '2000000002', full_name: 'خالد محمد', grade: 5, section: 'أ' },
+    { national_id: '2000000003', full_name: 'نورة سارة', grade: 1, section: 'أ' },
   ]
 
   for (const s of studentDefs) {
@@ -149,7 +152,6 @@ async function main() {
         full_name: s.full_name,
         grade: s.grade,
         class_id: c.id,
-        guardian_id: s.guardian_id,
         is_active: true,
       },
       { onConflict: 'national_id' },
@@ -162,35 +164,37 @@ async function main() {
   const khaled = students.find((s) => s.national_id === '2000000002')
   const noura = students.find((s) => s.national_id === '2000000003')
 
-  // Clear demo requests then insert samples
   await admin.from('permission_requests').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
   const samples = [
     {
       student_id: ahmed.id,
-      guardian_id: parent1.id,
       class_id: ahmed.class_id,
-      reason: 'موعد طبي',
+      reason: '',
       status: 'PENDING',
+      created_by: gate1.id,
+      request_source: 'GATE',
     },
     {
       student_id: khaled.id,
-      guardian_id: parent1.id,
       class_id: khaled.class_id,
-      reason: 'ظرف عائلي',
+      reason: '',
       status: 'APPROVED',
+      created_by: gate1.id,
+      request_source: 'GATE',
       decided_at: new Date().toISOString(),
-      decided_by: staffUsers[1].id,
+      decided_by: displayUsers[2].id,
     },
     {
       student_id: noura.id,
-      guardian_id: parent2.id,
       class_id: noura.class_id,
-      reason: 'مراجعة',
+      reason: '',
       status: 'REJECTED',
+      created_by: gate1.id,
+      request_source: 'GATE',
       rejection_reason: 'الطلب خارج وقت الدوام',
       decided_at: new Date().toISOString(),
-      decided_by: staffUsers[2].id,
+      decided_by: displayUsers[0].id,
     },
   ]
 
@@ -198,9 +202,9 @@ async function main() {
   if (reqErr) throw reqErr
 
   console.log('Seed complete.')
-  console.log('Admin: username=admin / Admin123!')
-  console.log('Staff: staff3b|staff5a|staff1a / Staff123!')
-  console.log('Parent: national_id=1000000001 or 1000000002 / Parent123!')
+  console.log('Admin: admin@admin.isteathan.local / Admin123!')
+  console.log('Gate: gate1@gate.isteathan.local / Gate123!')
+  console.log('Display: c1@g.com … c24@g.com / c123456')
   console.log('Admin user id:', adminUser.id)
 }
 

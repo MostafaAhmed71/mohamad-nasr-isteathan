@@ -12,21 +12,12 @@ import { supabase } from './supabase'
 import { syncBackgroundMonitor, stopBackgroundMonitor } from './backgroundMonitor'
 import type { Profile, UserRole } from './types'
 
-interface ParentSignUpInput {
-  email: string
-  password: string
-  full_name: string
-  national_id: string
-  phone: string | null
-}
-
 interface AuthContextValue {
   session: Session | null
   user: User | null
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUpParent: (input: ParentSignUpInput) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -104,45 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const signUpParent = useCallback(async (input: ParentSignUpInput) => {
-    const email = input.email.trim().toLowerCase()
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: input.password,
-    })
-    if (error) {
-      if (error.message.toLowerCase().includes('already')) {
-        throw new Error('هذا البريد مسجّل مسبقًا. سجّل الدخول أو استخدم بريدًا آخر.')
-      }
-      throw new Error('تعذر إنشاء الحساب. تحقق من البيانات أو إعدادات البريد في Supabase.')
-    }
-    if (!data.user) {
-      throw new Error('تعذر إنشاء الحساب.')
-    }
-    // If email confirmation is enabled, session may be null
-    if (!data.session) {
-      throw new Error(
-        'تم إنشاء الحساب. إن كان تأكيد البريد مفعّلاً في Supabase، أكّد بريدك ثم سجّل الدخول. يُفضّل تعطيل Confirm email للتطوير.',
-      )
-    }
-
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      full_name: input.full_name,
-      role: 'PARENT',
-      national_id: input.national_id,
-      phone: input.phone,
-      username: null,
-      is_active: true,
-    })
-    if (profileError) {
-      if (profileError.message.includes('duplicate') || profileError.code === '23505') {
-        throw new Error('رقم الهوية مسجّل مسبقًا.')
-      }
-      throw new Error('تعذر حفظ بيانات ولي الأمر.')
-    }
-  }, [])
-
   const signOut = useCallback(async () => {
     await stopBackgroundMonitor()
     await supabase.auth.signOut()
@@ -163,11 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       signIn,
-      signUpParent,
       signOut,
       refreshProfile,
     }),
-    [session, profile, loading, signIn, signUpParent, signOut, refreshProfile],
+    [session, profile, loading, signIn, signOut, refreshProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

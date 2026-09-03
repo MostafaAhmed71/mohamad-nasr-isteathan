@@ -142,7 +142,7 @@ export function whatsappNotifyPlugin(): Plugin {
             .eq('id', userData.user.id)
             .maybeSingle()
           const role = profile?.role as string | undefined
-          if (!role || !['PARENT', 'CLASS_STAFF', 'ADMIN'].includes(role)) {
+          if (!role || !['GATE_OFFICER', 'CLASS_STAFF', 'ADMIN'].includes(role)) {
             json(res, 403, { error: 'forbidden' })
             return
           }
@@ -158,7 +158,7 @@ export function whatsappNotifyPlugin(): Plugin {
           const { data: request, error: reqErr } = await admin
             .from('permission_requests')
             .select(
-              'id, status, reason, rejection_reason, guardian_id, class_id, created_at, students(full_name, grade, classes(section)), classes(grade, section), profiles:guardian_id(full_name, phone)',
+              'id, status, reason, rejection_reason, created_by, class_id, created_at, students(full_name, grade, classes(section)), classes(grade, section), profiles:created_by(full_name, phone)',
             )
             .eq('id', requestId)
             .maybeSingle()
@@ -169,7 +169,7 @@ export function whatsappNotifyPlugin(): Plugin {
           }
 
           if (event === 'created') {
-            if (role === 'PARENT' && request.guardian_id !== userData.user.id) {
+            if (role === 'GATE_OFFICER' && request.created_by !== userData.user.id) {
               json(res, 403, { error: 'forbidden' })
               return
             }
@@ -177,7 +177,7 @@ export function whatsappNotifyPlugin(): Plugin {
               json(res, 403, { error: 'forbidden' })
               return
             }
-          } else if (role === 'PARENT') {
+          } else if (role === 'GATE_OFFICER') {
             json(res, 403, { error: 'forbidden' })
             return
           }

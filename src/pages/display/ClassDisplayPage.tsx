@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   DisplayEmptyState,
   DisplayNowCalling,
@@ -9,7 +8,6 @@ import {
 import { unlockDisplayAudio } from '../../lib/displayAlert'
 import { useDisplayBoard } from '../../lib/displayBoard'
 import { SCHOOL_LOGO_SRC, SCHOOL_NAME } from '../../lib/brand'
-import { notifyGuardianOfDecision } from '../../lib/push'
 import { supabase } from '../../lib/supabase'
 import { classLabel, type SchoolClass } from '../../lib/types'
 import { useAuth } from '../../lib/auth'
@@ -84,11 +82,7 @@ export function ClassDisplayPage() {
       )
       return
     }
-    const result = await notifyGuardianOfDecision(requestId)
     setBusyId(null)
-    if (result.error && result.reason !== 'no_subscriptions') {
-      setActionError('تمت الموافقة، وتعذر إرسال إشعار لولي الأمر.')
-    }
   }
 
   const clockLabel = new Intl.DateTimeFormat('ar-SA', {
@@ -143,9 +137,6 @@ export function ClassDisplayPage() {
               تفعيل الصوت
             </button>
           ) : null}
-          <Link to="/class" className="rx-topbar__close">
-            إغلاق
-          </Link>
         </div>
       </header>
 

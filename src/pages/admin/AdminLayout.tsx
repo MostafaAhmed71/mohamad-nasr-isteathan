@@ -8,12 +8,10 @@ const links = [
   { to: '/admin', label: 'لوحة التحكم', end: true },
   { to: '/admin/requests', label: 'الطلبات' },
   { to: '/admin/students', label: 'الطلاب' },
-  { to: '/admin/parents', label: 'أولياء الأمور' },
+  { to: '/admin/gate', label: 'مناوبو البوابة' },
   { to: '/admin/classes', label: 'الفصول' },
-  { to: '/admin/staff', label: 'الموظفون' },
   { to: '/admin/import', label: 'استيراد' },
   { to: '/admin/guide', label: 'الدليل' },
-  { to: '/admin/whatsapp', label: 'مشرفو الخروج' },
   { to: '/display/lobby', label: 'شاشة البهو' },
 ]
 

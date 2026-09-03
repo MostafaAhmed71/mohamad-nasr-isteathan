@@ -10,7 +10,6 @@ import org.json.JSONObject;
 public class MainActivity extends BridgeActivity {
     public static final String EXTRA_OPEN_PATH = "open_path";
     public static final String CLASS_DISPLAY_PATH = "/display/class";
-    public static final String PARENT_REQUESTS_PATH = "/parent/requests";
 
     public static Intent openIntent(Context ctx, String path) {
         Intent launch = new Intent(ctx, MainActivity.class);
@@ -32,6 +31,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(BackgroundMonitorPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         stashOpenPath(getIntent());
         if (getBridge() != null && getBridge().getWebView() != null) {

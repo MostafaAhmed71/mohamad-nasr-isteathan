@@ -25,8 +25,7 @@ export interface CreateManagedUserInput {
   email: string
   password: string
   full_name: string
-  role: Extract<UserRole, 'CLASS_STAFF' | 'PARENT' | 'ADMIN'>
-  national_id?: string | null
+  role: Extract<UserRole, 'CLASS_STAFF' | 'ADMIN' | 'GATE_OFFICER'>
   username?: string | null
   phone?: string | null
   class_id?: string | null
@@ -76,25 +75,20 @@ export async function createManagedUser(input: CreateManagedUserInput): Promise<
     throw new Error('تعذر إنشاء المستخدم.')
   }
 
-  const username =
-    input.role === 'PARENT'
-      ? null
-      : (input.username?.trim().toLowerCase() || email.split('@')[0] || null)
+  const username = input.username?.trim().toLowerCase() || email.split('@')[0] || null
 
   const { error: profileError } = await supabase.from('profiles').insert({
     id: userId,
     full_name,
     role: input.role,
-    national_id: input.role === 'PARENT' ? input.national_id?.trim() || null : null,
     username,
     phone: input.phone?.trim() || null,
     is_active: true,
   })
 
   if (profileError) {
-    // Auth user may remain orphaned; surface a clear message.
     if (profileError.code === '23505') {
-      throw new Error('رقم الهوية أو اسم المستخدم مستخدم مسبقًا.')
+      throw new Error('اسم المستخدم مستخدم مسبقًا.')
     }
     throw new Error(profileError.message || 'تعذر حفظ ملف المستخدم.')
   }

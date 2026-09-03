@@ -16,7 +16,8 @@ export type DisplaySplash =
   | { kind: 'new'; id: string; name: string }
   | { kind: 'decision'; id: string; name: string; status: 'APPROVED' | 'REJECTED' }
 
-const SELECT = '*, students(*), classes(*), profiles:guardian_id(full_name)'
+const SELECT =
+  '*, students(*), classes(*), gate_officer:profiles!created_by(full_name)'
 
 export function isDisplayLate(request: PermissionRequest, now = Date.now()): boolean {
   if (request.status !== 'PENDING') return false

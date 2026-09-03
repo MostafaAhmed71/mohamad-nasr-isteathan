@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">خروج</string>
-    <string name="title_activity_main">خروج</string>
+    <string name="app_name">تطبيق خروج متوسطة وثانوية نخبة الشمال الأهلية</string>
+    <string name="title_activity_main">تطبيق خروج متوسطة وثانوية نخبة الشمال الأهلية</string>
     <string name="package_name">sa.isteathan.app</string>
     <string name="custom_url_scheme">sa.isteathan.app</string>
-    <string name="monitor_title">خروج</string>
+    <string name="monitor_title">خروج — نخبة الشمال</string>
     <string name="monitor_text">مراقبة طلبات الخروج تعمل في الخلفية</string>
     <string name="monitor_channel">مراقبة الخلفية</string>
     <string name="alerts_channel">تنبيهات الخروج</string>

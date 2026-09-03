@@ -37,7 +37,7 @@ function vapidReady() {
 async function requireUser(
   admin: SupabaseClient,
   authHeader: string | undefined,
-  roles: Array<'PARENT' | 'CLASS_STAFF' | 'ADMIN'>,
+  roles: Array<'GATE_OFFICER' | 'CLASS_STAFF' | 'ADMIN'>,
 ) {
   if (!authHeader?.startsWith('Bearer ')) return null
   const token = authHeader.slice('Bearer '.length)
@@ -48,7 +48,7 @@ async function requireUser(
     .select('role')
     .eq('id', userData.user.id)
     .maybeSingle()
-  if (!profile || !roles.includes(profile.role as 'PARENT' | 'CLASS_STAFF' | 'ADMIN')) {
+  if (!profile || !roles.includes(profile.role as 'GATE_OFFICER' | 'CLASS_STAFF' | 'ADMIN')) {
     return null
   }
   return userData.user
@@ -75,7 +75,7 @@ async function sendPushToUser(
   const payload = JSON.stringify({
     title,
     body,
-    url: tag.startsWith('decision') ? '/parent/requests' : '/class',
+    url: '/display/class',
     tag,
   })
 
@@ -124,7 +124,7 @@ function studentNameOf(row: { students?: { full_name?: string } | { full_name?: 
 }
 
 /**
- * Dev/test relay: send Web Push for decisions and new requests.
+ * Dev/test relay: send Web Push for new gate requests to class staff.
  */
 export function notifyDecisionPlugin(): Plugin {
   return {
@@ -165,53 +165,11 @@ export function notifyDecisionPlugin(): Plugin {
           }
 
           if (url === '/api/notify-decision') {
-            const user = await requireUser(admin, req.headers.authorization, [
-              'CLASS_STAFF',
-              'ADMIN',
-            ])
-            if (!user) {
-              json(res, 401, { error: 'unauthorized' })
-              return
-            }
-
-            const { data: request, error: reqErr } = await admin
-              .from('permission_requests')
-              .select('id, status, rejection_reason, guardian_id, students(full_name)')
-              .eq('id', requestId)
-              .maybeSingle()
-
-            if (reqErr || !request) {
-              json(res, 404, { error: 'request_not_found' })
-              return
-            }
-            if (request.status !== 'APPROVED' && request.status !== 'REJECTED') {
-              json(res, 400, { error: 'not_decided' })
-              return
-            }
-
-            const name = studentNameOf(request)
-            const title =
-              request.status === 'APPROVED' ? 'تمت الموافقة على الطلب' : 'تم رفض الطلب'
-            const text =
-              request.status === 'APPROVED'
-                ? `تمت الموافقة على طلب خروج ${name}.`
-                : `تم رفض طلب خروج ${name}${
-                    request.rejection_reason ? `: ${request.rejection_reason}` : '.'
-                  }`
-
-            const result = await sendPushToUser(
-              admin,
-              request.guardian_id,
-              title,
-              text,
-              `decision-${request.id}`,
-            )
-            json(res, 200, { ok: true, ...result })
+            json(res, 200, { ok: true, sent: 0, reason: 'no_recipients' })
             return
           }
 
-          // notify-new-request (parent -> class staff)
-          const user = await requireUser(admin, req.headers.authorization, ['PARENT', 'ADMIN'])
+          const user = await requireUser(admin, req.headers.authorization, ['GATE_OFFICER', 'ADMIN'])
           if (!user) {
             json(res, 401, { error: 'unauthorized' })
             return
@@ -220,7 +178,7 @@ export function notifyDecisionPlugin(): Plugin {
           const { data: request, error: reqErr } = await admin
             .from('permission_requests')
             .select(
-              'id, status, guardian_id, class_id, students(full_name), classes(staff_profile_id)',
+              'id, status, created_by, class_id, students(full_name), classes(staff_profile_id)',
             )
             .eq('id', requestId)
             .maybeSingle()
@@ -229,14 +187,14 @@ export function notifyDecisionPlugin(): Plugin {
             json(res, 404, { error: 'request_not_found' })
             return
           }
-          if (request.guardian_id !== user.id && user) {
-            // allow parent owner only (admin also via role check above but still)
+
+          if (request.created_by !== user.id) {
             const { data: profile } = await admin
               .from('profiles')
               .select('role')
               .eq('id', user.id)
               .maybeSingle()
-            if (profile?.role !== 'ADMIN' && request.guardian_id !== user.id) {
+            if (profile?.role !== 'ADMIN') {
               json(res, 403, { error: 'forbidden' })
               return
             }

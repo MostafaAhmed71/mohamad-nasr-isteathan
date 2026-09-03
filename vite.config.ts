@@ -45,10 +45,11 @@ export default defineConfig(({ mode }) => {
         'favicon-32.png',
         'apple-touch-icon.png',
         'school-logo.jpeg',
+        'app-version.json',
       ],
       manifest: {
-        name: 'خروج — نخبة الشمال الأهلية',
-        short_name: 'خروج',
+        name: 'تطبيق خروج متوسطة وثانوية نخبة الشمال الأهلية',
+        short_name: 'خروج — نخبة الشمال',
         description: 'نظام خروج — مدارس نخبة الشمال الأهلية',
         lang: 'ar',
         dir: 'rtl',

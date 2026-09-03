@@ -18,6 +18,8 @@
     "apk:debug": "node scripts/build-apk.mjs",
     "apk:release": "node scripts/build-apk.mjs --release",
     "apk:update": "node scripts/build-apk.mjs --release --install",
+    "apk:keystore": "node scripts/setup-android-keystore.mjs",
+    "icons:generate": "python3 scripts/generate-app-icons.py",
     "db:apply": "node scripts/apply-migrations.mjs",
     "db:seed": "node scripts/seed.mjs",
     "db:create-admin": "node scripts/create-admin.mjs",

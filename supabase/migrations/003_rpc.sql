@@ -1,9 +1,88 @@
--- Secure RPCs for permission workflow
+-- RPCs — مناوب البوابة + موافقة الفصل + إعداد المدير
 
-create or replace function public.create_permission_request(
-  p_student_id uuid,
-  p_reason text default null
+create or replace function public.bootstrap_admin_profile(p_full_name text default 'مدير النظام')
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles;
+begin
+  if auth.uid() is null then
+    raise exception 'غير مصرح';
+  end if;
+
+  if exists (select 1 from public.profiles where role = 'ADMIN') then
+    raise exception 'يوجد مدير مسبقًا';
+  end if;
+
+  insert into public.profiles (id, full_name, role, username, phone, is_active)
+  values (
+    auth.uid(),
+    coalesce(nullif(trim(p_full_name), ''), 'مدير النظام'),
+    'ADMIN',
+    'admin',
+    null,
+    true
+  )
+  on conflict (id) do update
+    set role = 'ADMIN',
+        full_name = excluded.full_name,
+        username = 'admin',
+        is_active = true
+  returning * into v_profile;
+
+  return v_profile;
+end;
+$$;
+
+create or replace function public.search_students_for_gate(p_query text)
+returns table (
+  id uuid,
+  full_name text,
+  grade integer,
+  class_id uuid,
+  class_label text,
+  has_pending boolean
 )
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_q text;
+begin
+  if auth.uid() is null or not public.is_gate_officer() then
+    raise exception 'غير مصرح';
+  end if;
+
+  v_q := trim(p_query);
+  if length(v_q) < 2 then
+    return;
+  end if;
+
+  return query
+  select
+    s.id,
+    s.full_name,
+    s.grade,
+    s.class_id,
+    (s.grade::text || ' ' || c.section) as class_label,
+    exists (
+      select 1 from public.permission_requests pr
+      where pr.student_id = s.id and pr.status = 'PENDING'
+    ) as has_pending
+  from public.students s
+  join public.classes c on c.id = s.class_id and c.is_active = true
+  where s.is_active = true
+    and s.full_name ilike '%' || v_q || '%'
+  order by s.full_name
+  limit 20;
+end;
+$$;
+
+create or replace function public.create_gate_exit_request(p_student_id uuid)
 returns public.permission_requests
 language plpgsql
 security definer
@@ -12,35 +91,30 @@ as $$
 declare
   v_student public.students;
   v_request public.permission_requests;
-  v_reason text;
 begin
-  if auth.uid() is null then
+  if auth.uid() is null or not public.is_gate_officer() then
     raise exception 'غير مصرح';
   end if;
 
-  v_reason := coalesce(trim(p_reason), '');
-
   select * into v_student
   from public.students
-  where id = p_student_id
-    and guardian_id = auth.uid()
-    and is_active = true;
+  where id = p_student_id and is_active = true;
 
   if not found then
-    raise exception 'الطالب غير موجود أو غير مرتبط بحسابك';
+    raise exception 'الطالب غير موجود';
   end if;
 
   if exists (
     select 1 from public.permission_requests
     where student_id = p_student_id and status = 'PENDING'
   ) then
-    raise exception 'يوجد بالفعل طلب استئذان قيد الانتظار لهذا الطالب.';
+    raise exception 'يوجد بالفعل طلب خروج قيد الانتظار لهذا الطالب.';
   end if;
 
   insert into public.permission_requests (
-    student_id, guardian_id, class_id, reason, status
+    student_id, class_id, reason, status, created_by, request_source
   ) values (
-    v_student.id, auth.uid(), v_student.class_id, v_reason, 'PENDING'
+    v_student.id, v_student.class_id, '', 'PENDING', auth.uid(), 'GATE'
   )
   returning * into v_request;
 
@@ -104,7 +178,12 @@ begin
 end;
 $$;
 
-revoke all on function public.create_permission_request(uuid, text) from public;
+revoke all on function public.bootstrap_admin_profile(text) from public;
+revoke all on function public.search_students_for_gate(text) from public;
+revoke all on function public.create_gate_exit_request(uuid) from public;
 revoke all on function public.decide_permission_request(uuid, text, text) from public;
-grant execute on function public.create_permission_request(uuid, text) to authenticated;
+
+grant execute on function public.bootstrap_admin_profile(text) to authenticated;
+grant execute on function public.search_students_for_gate(text) to authenticated;
+grant execute on function public.create_gate_exit_request(uuid) to authenticated;
 grant execute on function public.decide_permission_request(uuid, text, text) to authenticated;

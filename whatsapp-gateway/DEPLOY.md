@@ -113,7 +113,7 @@ supabase functions deploy whatsapp-notify
 supabase functions deploy whatsapp-status
 ```
 
-نفّذ مرة إن لم تُنفَّذ: `supabase/migrations/009_whatsapp_notifications.sql`
+نفّذ مرة إن لم تُنفَّذ: `supabase/migrations/004_notifications.sql`
 
 ## 6) مسح QR
 

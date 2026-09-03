@@ -24,12 +24,12 @@ export function normalizeWhatsAppNumber(raw: string, defaultCountry = '966'): st
 }
 
 const GRADE_LABELS: Record<number, string> = {
-  1: 'الأول الابتدائي',
-  2: 'الثاني الابتدائي',
-  3: 'الثالث الابتدائي',
-  4: 'الرابع الابتدائي',
-  5: 'الخامس الابتدائي',
-  6: 'السادس الابتدائي',
+  1: 'الأول المتوسط',
+  2: 'الثاني المتوسط',
+  3: 'الثالث المتوسط',
+  4: 'الأول الثانوي',
+  5: 'الثاني الثانوي',
+  6: 'الثالث الثانوي',
 }
 
 export function gradeLabel(grade: number): string {
@@ -103,7 +103,7 @@ export function supervisorNewRequestMessage(input: {
   studentName: string
   grade: number
   section: string
-  guardianName: string
+  gateOfficerName: string
   reason: string
   requestTime: string
 }): string {
@@ -115,7 +115,7 @@ export function supervisorNewRequestMessage(input: {
     `الصف: ${gradeLabel(input.grade)}`,
     `الفصل: ${input.section}`,
     '',
-    `ولي الأمر: ${input.guardianName}`,
+    `مناوب البوابة: ${input.gateOfficerName}`,
     '',
     'سبب الخروج:',
     reason,
@@ -126,46 +126,8 @@ export function supervisorNewRequestMessage(input: {
   ].join('\n')
 }
 
-export function parentCreatedMessage(studentName: string): string {
-  return `تم استلام طلب خروج الطالب ${studentName} بنجاح، وجارٍ معالجة الطلب من قبل المدرسة.`
-}
-
-export function parentApprovedMessage(input: {
-  studentName: string
-  grade: number
-  section: string
-}): string {
-  return [
-    `تمت الموافقة على طلب خروج الطالب ${input.studentName}.`,
-    '',
-    `الصف: ${gradeLabel(input.grade)}`,
-    `الفصل: ${input.section}`,
-    '',
-    'الحالة: تمت الموافقة.',
-  ].join('\n')
-}
-
-export function parentRejectedMessage(input: {
-  studentName: string
-  grade: number
-  section: string
-  rejectionReason: string | null
-}): string {
-  const lines = [
-    `تم رفض طلب خروج الطالب ${input.studentName}.`,
-    '',
-    `الصف: ${gradeLabel(input.grade)}`,
-    `الفصل: ${input.section}`,
-  ]
-  const reason = input.rejectionReason?.trim()
-  if (reason) {
-    lines.push('', 'سبب الرفض:', reason)
-  }
-  return lines.join('\n')
-}
-
 export type WhatsAppEvent = 'created' | 'decision'
-export type RecipientType = 'SUPERVISOR' | 'PARENT'
+export type RecipientType = 'SUPERVISOR'
 export type MessageType = 'REQUEST_CREATED' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED'
 
 type Job = {
@@ -288,7 +250,7 @@ type RequestRow = {
   status: string
   reason: string | null
   rejection_reason: string | null
-  guardian_id: string
+  created_by: string | null
   class_id?: string | null
   created_at: string
   students:
@@ -324,12 +286,11 @@ export async function dispatchWhatsAppForRequest(opts: {
 }): Promise<{ sent: number; skipped: number; errors: string[] }> {
   const student = one(opts.request.students)
   const cls = one(opts.request.classes)
-  const guardian = one(opts.request.profiles)
+  const gateOfficer = one(opts.request.profiles)
   const grade = student?.grade ?? cls?.grade ?? 0
   const section = one(student?.classes)?.section ?? cls?.section ?? ''
   const studentName = student?.full_name ?? 'الطالب'
-  const guardianName = guardian?.full_name ?? 'ولي الأمر'
-  const parentPhone = guardian?.phone ?? ''
+  const gateOfficerName = gateOfficer?.full_name ?? 'مناوب البوابة'
 
   const jobs: Job[] = []
 
@@ -347,41 +308,12 @@ export async function dispatchWhatsAppForRequest(opts: {
           studentName,
           grade,
           section,
-          guardianName,
+          gateOfficerName,
           reason: opts.request.reason ?? '',
           requestTime: opts.request.created_at,
         }),
       })
     }
-    jobs.push({
-      recipientType: 'PARENT',
-      messageType: 'REQUEST_CREATED',
-      phoneRaw: parentPhone,
-      text: parentCreatedMessage(studentName),
-    })
-  }
-
-  if (opts.event === 'decision' && opts.request.status === 'APPROVED') {
-    jobs.push({
-      recipientType: 'PARENT',
-      messageType: 'REQUEST_APPROVED',
-      phoneRaw: parentPhone,
-      text: parentApprovedMessage({ studentName, grade, section }),
-    })
-  }
-
-  if (opts.event === 'decision' && opts.request.status === 'REJECTED') {
-    jobs.push({
-      recipientType: 'PARENT',
-      messageType: 'REQUEST_REJECTED',
-      phoneRaw: parentPhone,
-      text: parentRejectedMessage({
-        studentName,
-        grade,
-        section,
-        rejectionReason: opts.request.rejection_reason,
-      }),
-    })
   }
 
   let sent = 0

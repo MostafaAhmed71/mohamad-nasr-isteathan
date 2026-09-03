@@ -1,4 +1,6 @@
-export type UserRole = 'PARENT' | 'CLASS_STAFF' | 'ADMIN'
+export type UserRole = 'GATE_OFFICER' | 'CLASS_STAFF' | 'ADMIN'
+
+export type RequestSource = 'GATE'
 
 export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
@@ -6,7 +8,6 @@ export interface Profile {
   id: string
   full_name: string
   role: UserRole
-  national_id: string | null
   username: string | null
   phone: string | null
   is_active: boolean
@@ -30,7 +31,6 @@ export interface Student {
   full_name: string
   grade: number
   class_id: string
-  guardian_id: string | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -40,27 +40,41 @@ export interface Student {
 export interface PermissionRequest {
   id: string
   student_id: string
-  guardian_id: string
   class_id: string
   reason: string
   status: RequestStatus
   rejection_reason: string | null
+  created_by: string | null
+  request_source?: RequestSource
   created_at: string
   decided_at: string | null
   decided_by: string | null
   updated_at: string
   students?: Student | null
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'national_id'> | null
+  gate_officer?: Pick<Profile, 'id' | 'full_name'> | null
   classes?: SchoolClass | null
 }
 
+/** Internal grade 1–3 = متوسط، 4–6 = ثانوي (كل مرحلة 3 صفوف × 4 شعب) */
 export const GRADE_LABELS: Record<number, string> = {
-  1: 'الأول الابتدائي',
-  2: 'الثاني الابتدائي',
-  3: 'الثالث الابتدائي',
-  4: 'الرابع الابتدائي',
-  5: 'الخامس الابتدائي',
-  6: 'السادس الابتدائي',
+  1: 'الأول المتوسط',
+  2: 'الثاني المتوسط',
+  3: 'الثالث المتوسط',
+  4: 'الأول الثانوي',
+  5: 'الثاني الثانوي',
+  6: 'الثالث الثانوي',
+}
+
+export const STAGE_LABELS = {
+  MIDDLE: 'متوسط',
+  SECONDARY: 'ثانوي',
+} as const
+
+export const MIDDLE_GRADES = [1, 2, 3] as const
+export const SECONDARY_GRADES = [4, 5, 6] as const
+
+export function stageLabelForGrade(grade: number): string {
+  return grade <= 3 ? STAGE_LABELS.MIDDLE : STAGE_LABELS.SECONDARY
 }
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
@@ -87,25 +101,33 @@ export function formatDateTime(value: string): string {
   }
 }
 
-/** Map login identifier to Supabase Auth email (legacy helpers) */
-export function authEmailForParent(nationalId: string): string {
-  return `${nationalId.trim()}@parent.isteathan.local`
-}
-
+/** Map login identifier to Supabase Auth email */
 export function authEmailForStaff(username: string): string {
   return `${username.trim().toLowerCase()}@staff.isteathan.local`
+}
+
+export function authEmailForGateOfficer(username: string): string {
+  return `${username.trim().toLowerCase()}@gate.isteathan.local`
 }
 
 export function authEmailForAdmin(username: string): string {
   return `${username.trim().toLowerCase()}@admin.isteathan.local`
 }
 
+export function requestOriginLabel(
+  request: Pick<PermissionRequest, 'gate_officer'>,
+): string {
+  return request.gate_officer?.full_name
+    ? `البوابة — ${request.gate_officer.full_name}`
+    : 'البوابة'
+}
+
 export function homePathForRole(role: UserRole): string {
   switch (role) {
-    case 'PARENT':
-      return '/parent'
     case 'CLASS_STAFF':
-      return '/class'
+      return '/display/class'
+    case 'GATE_OFFICER':
+      return '/gate'
     case 'ADMIN':
       return '/admin'
   }

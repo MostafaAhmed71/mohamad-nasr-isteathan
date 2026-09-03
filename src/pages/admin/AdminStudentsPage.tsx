@@ -4,7 +4,6 @@ import {
   GRADE_LABELS,
   SECTIONS,
   classLabel,
-  type Profile,
   type SchoolClass,
   type Student,
 } from '../../lib/types'
@@ -21,7 +20,6 @@ import {
 export function AdminStudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<SchoolClass[]>([])
-  const [parents, setParents] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -32,18 +30,15 @@ export function AdminStudentsPage() {
     full_name: '',
     grade: '1',
     class_id: '',
-    guardian_id: '',
   })
 
   async function reload() {
-    const [s, c, p] = await Promise.all([
+    const [s, c] = await Promise.all([
       supabase.from('students').select('*, classes(*)').order('full_name'),
       supabase.from('classes').select('*').order('grade').order('section'),
-      supabase.from('profiles').select('*').eq('role', 'PARENT').order('full_name'),
     ])
     setStudents((s.data as Student[]) ?? [])
     setClasses((c.data as SchoolClass[]) ?? [])
-    setParents((p.data as Profile[]) ?? [])
     setLoading(false)
   }
 
@@ -60,7 +55,6 @@ export function AdminStudentsPage() {
       full_name: '',
       grade: '1',
       class_id: '',
-      guardian_id: '',
     })
   }
 
@@ -71,7 +65,6 @@ export function AdminStudentsPage() {
       full_name: student.full_name,
       grade: String(student.grade),
       class_id: student.class_id,
-      guardian_id: student.guardian_id ?? '',
     })
   }
 
@@ -88,7 +81,6 @@ export function AdminStudentsPage() {
       full_name: form.full_name.trim(),
       grade: Number(form.grade),
       class_id: form.class_id,
-      guardian_id: form.guardian_id || null,
       is_active: true,
     }
     const res = editing
@@ -206,13 +198,7 @@ export function AdminStudentsPage() {
             <option key={c.id} value={c.id}>{c.section}</option>
           ))}
         </SelectField>
-        <SelectField label="ولي الأمر (اختياري)" value={form.guardian_id} onChange={(e) => setForm({ ...form, guardian_id: e.target.value })}>
-          <option value="">بدون — يربطه ولي الأمر برقم الهوية</option>
-          {parents.map((p) => (
-            <option key={p.id} value={p.id}>{p.full_name} — {p.national_id}</option>
-          ))}
-        </SelectField>
-        <div className="flex items-end">
+        <div className="flex items-end sm:col-span-2">
           <PrimaryButton type="submit" full disabled={busy}>
             {editing ? 'تحديث' : 'إضافة'}
           </PrimaryButton>
@@ -233,7 +219,6 @@ export function AdminStudentsPage() {
               <p className="font-bold">{s.full_name}</p>
               <p className="text-sm text-[var(--color-muted)]">
                 {s.national_id} — {s.classes ? classLabel(s.classes.grade, s.classes.section) : ''}
-                {s.guardian_id ? '' : ' — غير مرتبط بولي أمر'}
               </p>
             </div>
             <div className="flex gap-2">

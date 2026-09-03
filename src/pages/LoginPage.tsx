@@ -1,7 +1,6 @@
 import { type FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { SchoolBrand } from '../components/SchoolBrand'
-import { ErrorBox, PrimaryButton, SecondaryButton, TextField } from '../components/ui'
+import { ErrorBox, PrimaryButton, TextField } from '../components/ui'
 import { useAuth } from '../lib/auth'
 
 export function LoginPage() {
@@ -43,7 +42,7 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username"
-            placeholder="مثال: c1@g.com"
+            placeholder="مثال: gate1@gate.isteathan.local أو c1@g.com"
             required
           />
           <TextField
@@ -59,15 +58,6 @@ export function LoginPage() {
             {submitting ? 'جاري الدخول...' : 'دخول'}
           </PrimaryButton>
         </form>
-
-        <div className="mt-6">
-          <p className="mb-3 text-center text-sm text-[var(--color-muted)]">ولي أمر جديد؟</p>
-          <Link to="/register">
-            <SecondaryButton type="button" full>
-              إنشاء حساب ولي أمر
-            </SecondaryButton>
-          </Link>
-        </div>
       </div>
     </main>
   )

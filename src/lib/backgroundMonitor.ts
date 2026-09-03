@@ -67,9 +67,7 @@ export async function requestOverlayPermission(): Promise<boolean> {
 const CLASS_DISPLAY_PATH = '/display/class'
 const ALLOWED_LAUNCH_PATHS = new Set([
   CLASS_DISPLAY_PATH,
-  '/class',
-  '/parent',
-  '/parent/requests',
+  '/gate',
 ])
 
 export function listenNativeLaunchPath(onNavigate: (path: string) => void): () => void {
@@ -105,7 +103,7 @@ export async function stopBackgroundMonitor(): Promise<void> {
 
 export async function syncBackgroundMonitor(profile: Profile | null): Promise<void> {
   if (!isNativeApp() || Capacitor.getPlatform() !== 'android') return
-  if (!profile || (profile.role !== 'CLASS_STAFF' && profile.role !== 'PARENT')) {
+  if (!profile || profile.role !== 'CLASS_STAFF') {
     await stopBackgroundMonitor()
     return
   }

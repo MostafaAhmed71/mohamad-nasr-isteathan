@@ -2,7 +2,7 @@
 
 تطبيق ويب عربي (RTL) لإدارة طلبات خروج الطلاب — مدارس نخبة الشمال الأهلية.
 
-المسار الأساسي: ولي الأمر يرسل طلبًا → يظهر فورًا عند الفصل → موافقة/رفض → ولي الأمر يرى النتيجة.
+المسار الأساسي: مناوب البوابة يرسل طلبًا → يظهر فورًا عند الفصل → موافقة/رفض.
 
 ## المتطلبات
 
@@ -24,6 +24,7 @@ cp .env.example .env
 1. `supabase/migrations/001_schema.sql`
 2. `supabase/migrations/002_rls.sql`
 3. `supabase/migrations/003_rpc.sql`
+4. `supabase/migrations/004_notifications.sql` *(Push — اختياري)*
 
 أو مع رابط Postgres:
 
@@ -44,8 +45,8 @@ npm run db:seed
 | الدور | المعرف | كلمة المرور |
 |--------|---------|-------------|
 | إدارة | `admin` | `Admin123!` |
-| موظف فصل | `staff3b` / `staff5a` / `staff1a` | `Staff123!` |
-| ولي أمر | `1000000001` أو `1000000002` | `Parent123!` |
+| موظف فصل (شاشة) | `c1@g.com` … `c24@g.com` | `c123456` |
+| مناوب بوابة | `gate1` | `Gate123!` |
 
 ### 3) تشغيل الواجهة
 
@@ -78,9 +79,9 @@ supabase functions deploy admin-create-user
 ## المسارات
 
 - `/login`
-- `/parent` · `/parent/permission/new/:studentId` · `/parent/requests`
-- `/class`
-- `/admin` · طلبات · طلاب · أولياء · فصول · موظفون · استيراد
+- `/gate` — مناوبو البوابة
+- `/display/class` — شاشة الفصل
+- `/admin` · طلبات · طلاب · مناوبو البوابة · فصول · استيراد
 
 ## النشر على استضافة (هوستنجر / Apache / LiteSpeed)
 
@@ -103,17 +104,9 @@ npm run build
 > supabase functions deploy admin-delete-user
 > ```
 
-## إشعارات WhatsApp (WPPConnect)
+## إشعارات Push (اختياري)
 
-لا تعمل من الاستضافة الثابتة وحدها. شغّل البوابة على جهاز/سيرفر فيه Chrome:
-
-```bash
-cd whatsapp-gateway && npm install && cd ..
-npm run whatsapp:gateway
-```
-
-ثم نفّذ `supabase/migrations/009_whatsapp_notifications.sql` في SQL Editor.
-من لوحة الإدارة → **مشرفو الخروج**: أدخل الاسم والرقم، وامسح رمز QR عند أول تشغيل.
+نفّذ `supabase/migrations/004_notifications.sql` لتفعيل اشتراكات Web Push لشاشات الفصول.
 
 ## متغيرات البيئة
 
@@ -171,31 +164,47 @@ npx cap sync ios
 
 ## تطبيق Android (APK)
 
-نفس الواجهة تُغلَّف عبر Capacitor. معرّف التطبيق: `sa.isteathan.app`
+نفس الواجهة تُغلَّف عبر Capacitor. معرّف التطبيق: `sa.isteathan.app`  
+اسم التطبيق على الجهاز: **تطبيق خروج متوسطة وثانوية نخبة الشمال الأهلية**
 
-يتطلب Android Studio (أو SDK + JDK 17/21). على ويندوز يُستخدم JBR المضمّن في Android Studio ومجلد الـ SDK.
+### مفتاح التوقيع (مرة واحدة)
+
+```bash
+npm run apk:keystore
+```
+
+يُنشئ `android/keystore/khurooj-release.jks` و`keystore.properties`. **احفظهما احتياطياً** — بدونهما لا يمكن تحديث التطبيق على الأجهزة دون حذف النسخة القديمة. نسخة التجربة (debug) تُوقَّع بنفس المفتاح تلقائياً.
+
+### بناء ونشر
+
+في `.env` عيّن عنوان موقعك:
+
+```env
+APP_UPDATE_BASE_URL=https://your-school-domain.com
+```
 
 ```bash
 npm run apk:release
 ```
 
-الملف الناتج: `apk/khurooj-release.apk`. انقله للجهاز وافتحه: أندرويد يحدّث التطبيق **بدون حذف** طالما التوقيع نفسه و`versionCode` أعلى (يُزاد تلقائياً مع كل بناء).
+الملف الناتج: `apk/khurooj-release.apk`. ارفع مع موقعك:
 
-إن كان الجهاز موصولاً بـ USB وتصحيح USB مفعّل:
+- `apk/khurooj-release.apk` (أو انسخه إلى مجلد عام على الخادم)
+- `app-version.json` (يُحدَّث تلقائياً في `public/` و`apk/`)
+
+عند فتح التطبيق على الجهاز، إذا وُجد `versionCode` أحدث على الخادم يظهر زر **تحديث الآن** ويُثبّت فوق النسخة الحالية **بدون حذف**.
 
 ```bash
 npm run apk:update
 ```
 
-يبني نسخة النشر ثم يشغّل `adb install -r` فوق التطبيق الحالي.
-
-التوقيع محفوظ محلياً في `android/keystore/` و`android/keystore.properties` (لا يُرفعان إلى Git). انسخهما احتياطاً؛ بدونهما لا يمكن تحديث التطبيق لاحقاً بنفس التوقيع.
-
-لنسخة التجربة فقط (تُوقَّع بنفس مفتاح النشر إن وُجد المفتاح):
+يبني نسخة النشر ثم يشغّل `adb install -r` فوق التطبيق الحالي (USB).
 
 ```bash
 npm run apk:debug
 ```
+
+نسخة تجريبية بنفس مفتاح التوقيع.
 
 ## الرخصة
 

@@ -27,12 +27,12 @@ function normalizeWhatsAppNumber(raw: string): string | null {
 }
 
 const GRADE: Record<number, string> = {
-  1: "الأول الابتدائي",
-  2: "الثاني الابتدائي",
-  3: "الثالث الابتدائي",
-  4: "الرابع الابتدائي",
-  5: "الخامس الابتدائي",
-  6: "السادس الابتدائي",
+  1: "الأول المتوسط",
+  2: "الثاني المتوسط",
+  3: "الثالث المتوسط",
+  4: "الأول الثانوي",
+  5: "الثاني الثانوي",
+  6: "الثالث الثانوي",
 };
 
 function riyadhWeekday(at = new Date()) {
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
     const role = profile?.role as string | undefined;
-    if (!role || !["PARENT", "CLASS_STAFF", "ADMIN"].includes(role)) {
+    if (!role || !["GATE_OFFICER", "CLASS_STAFF", "ADMIN"].includes(role)) {
       return json({ error: "forbidden" }, 403);
     }
 
@@ -119,17 +119,17 @@ Deno.serve(async (req) => {
     const { data: request, error: reqErr } = await admin
       .from("permission_requests")
       .select(
-        "id, status, reason, rejection_reason, guardian_id, class_id, created_at, students(full_name, grade, classes(section)), classes(grade, section), profiles:guardian_id(full_name, phone)",
+        "id, status, reason, rejection_reason, created_by, class_id, created_at, students(full_name, grade, classes(section)), classes(grade, section), profiles:created_by(full_name, phone)",
       )
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr || !request) return json({ error: "request_not_found" }, 404);
 
-    if (event === "created" && role === "PARENT" && request.guardian_id !== user.id) {
+    if (event === "created" && role === "GATE_OFFICER" && request.created_by !== user.id) {
       return json({ error: "forbidden" }, 403);
     }
     if (event === "created" && role === "CLASS_STAFF") return json({ error: "forbidden" }, 403);
-    if (event === "decision" && role === "PARENT") return json({ error: "forbidden" }, 403);
+    if (event === "decision" && role === "GATE_OFFICER") return json({ error: "forbidden" }, 403);
 
     if (!gatewayUrl) {
       return json({ ok: false, sent: 0, error: "gateway_not_configured" });
@@ -137,11 +137,11 @@ Deno.serve(async (req) => {
 
     const student = request.students as { full_name?: string; grade?: number; classes?: { section?: string } } | null;
     const cls = request.classes as { grade?: number; section?: string } | null;
-    const guardian = request.profiles as { full_name?: string; phone?: string | null } | null;
+    const gateOfficer = request.profiles as { full_name?: string; phone?: string | null } | null;
     const grade = student?.grade ?? cls?.grade ?? 0;
     const section = student?.classes?.section ?? cls?.section ?? "";
     const studentName = student?.full_name ?? "الطالب";
-    const guardianName = guardian?.full_name ?? "ولي الأمر";
+    const gateOfficerName = gateOfficer?.full_name ?? "مناوب البوابة";
 
     type Job = { recipientType: string; messageType: string; phone: string; text: string };
     const jobs: Job[] = [];
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
             `الصف: ${GRADE[grade] ?? grade}`,
             `الفصل: ${section}`,
             "",
-            `ولي الأمر: ${guardianName}`,
+            `مناوب البوابة: ${gateOfficerName}`,
             "",
             "سبب الخروج:",
             (request.reason || "").trim() || "بدون سبب",
@@ -174,44 +174,6 @@ Deno.serve(async (req) => {
           ].join("\n"),
         });
       }
-      jobs.push({
-        recipientType: "PARENT",
-        messageType: "REQUEST_CREATED",
-        phone: guardian?.phone ?? "",
-        text: `تم استلام طلب خروج الطالب ${studentName} بنجاح، وجارٍ معالجة الطلب من قبل المدرسة.`,
-      });
-    }
-
-    if (event === "decision" && request.status === "APPROVED") {
-      jobs.push({
-        recipientType: "PARENT",
-        messageType: "REQUEST_APPROVED",
-        phone: guardian?.phone ?? "",
-        text: [
-          `تمت الموافقة على طلب خروج الطالب ${studentName}.`,
-          "",
-          `الصف: ${GRADE[grade] ?? grade}`,
-          `الفصل: ${section}`,
-          "",
-          "الحالة: تمت الموافقة.",
-        ].join("\n"),
-      });
-    }
-
-    if (event === "decision" && request.status === "REJECTED") {
-      const reason = (request.rejection_reason || "").trim();
-      jobs.push({
-        recipientType: "PARENT",
-        messageType: "REQUEST_REJECTED",
-        phone: guardian?.phone ?? "",
-        text: [
-          `تم رفض طلب خروج الطالب ${studentName}.`,
-          "",
-          `الصف: ${GRADE[grade] ?? grade}`,
-          `الفصل: ${section}`,
-          ...(reason ? ["", "سبب الرفض:", reason] : []),
-        ].join("\n"),
-      });
     }
 
     let sent = 0;

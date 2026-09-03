@@ -20,8 +20,13 @@ export function classStaffLogin(index: number): { username: string; email: strin
   return { username, email: `${username}@g.com` }
 }
 
+export function classDisplayName(grade: number, section: string): string {
+  return `شاشة ${classLabel(grade, section)}`
+}
+
+/** @deprecated use classDisplayName */
 export function classStaffName(grade: number, section: string): string {
-  return `مشرف ${classLabel(grade, section)}`
+  return classDisplayName(grade, section)
 }
 
 export function loginFromUsername(username: string | null | undefined): string {

@@ -197,5 +197,5 @@ export function alertRequestDecision(
           rejectionReason?.trim() ? `: ${rejectionReason.trim()}` : '.'
         }`
   playAlertSound()
-  void showBrowserNotification(title, body, '/parent/requests')
+  void showBrowserNotification(title, body, '/display/class')
 }

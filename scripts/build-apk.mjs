@@ -6,6 +6,20 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const isWin = process.platform === 'win32'
 
+function loadEnv() {
+  const envPath = join(root, '.env')
+  if (!existsSync(envPath)) return
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^([^#=]+)=(.*)$/)
+    if (!m) continue
+    const key = m[1].trim()
+    const val = m[2].trim()
+    if (!process.env[key]) process.env[key] = val
+  }
+}
+
+loadEnv()
+
 const home = process.env.HOME || ''
 const studioJbrWin = 'C:\\Program Files\\Android\\Android Studio\\jbr'
 const jdkCandidates = [
@@ -81,6 +95,7 @@ function bumpVersionCode() {
   const gradlePath = join(androidDir, 'app', 'build.gradle')
   const text = readFileSync(gradlePath, 'utf8')
   const match = text.match(/versionCode\s+(\d+)/)
+  const nameMatch = text.match(/versionName\s+"([^"]+)"/)
   if (!match) {
     console.warn('versionCode not found in android/app/build.gradle — skipped bump.')
     return null
@@ -88,7 +103,40 @@ function bumpVersionCode() {
   const next = Number(match[1]) + 1
   writeFileSync(gradlePath, text.replace(/versionCode\s+\d+/, `versionCode ${next}`))
   console.log(`versionCode ${match[1]} → ${next} (required for in-place Android update)`)
-  return next
+  return {
+    versionCode: next,
+    versionName: nameMatch?.[1] ?? String(next),
+  }
+}
+
+function writeUpdateManifest(version) {
+  const base = String(process.env.APP_UPDATE_BASE_URL ?? process.env.VITE_APP_UPDATE_BASE_URL ?? '').replace(
+    /\/$/,
+    '',
+  )
+  const apkUrl =
+    String(process.env.APP_UPDATE_APK_URL ?? '').trim() ||
+    (base ? `${base}/apk/khurooj-release.apk` : 'https://YOUR-DOMAIN/apk/khurooj-release.apk')
+
+  const manifest = {
+    versionCode: version.versionCode,
+    versionName: version.versionName,
+    apkUrl,
+    notes: 'تحديث تلقائي من الخادم',
+  }
+
+  const json = `${JSON.stringify(manifest, null, 2)}\n`
+  const publicPath = join(root, 'public', 'app-version.json')
+  const apkDirPath = join(root, 'apk', 'app-version.json')
+  writeFileSync(publicPath, json, 'utf8')
+  mkdirSync(join(root, 'apk'), { recursive: true })
+  writeFileSync(apkDirPath, json, 'utf8')
+  console.log(`Wrote app-version.json (versionCode ${version.versionCode})`)
+  if (!base) {
+    console.warn(
+      'Set APP_UPDATE_BASE_URL in .env to your site URL so devices download the correct APK.',
+    )
+  }
 }
 
 async function installOnDevice(apkPath) {
@@ -113,19 +161,54 @@ if (!existsSync(androidDir)) {
   process.exit(1)
 }
 
-if (release && !existsSync(join(androidDir, 'keystore.properties'))) {
-  console.error('Missing android/keystore.properties. Copy keystore.properties.example and create the release keystore.')
-  process.exit(1)
+if (!existsSync(join(androidDir, 'keystore.properties'))) {
+  console.log('No keystore yet — creating permanent release key...')
+  await run(process.execPath, [join(root, 'scripts', 'setup-android-keystore.mjs')])
 }
 
-bumpVersionCode()
+const version = bumpVersionCode()
+if (version) writeUpdateManifest(version)
 
-await run(isWin ? 'npm.cmd' : 'npm', ['run', 'vite:build'])
-await run(isWin ? 'npx.cmd' : 'npx', ['cap', 'sync', 'android'])
-await run(join(androidDir, gradle), [release ? 'assembleRelease' : 'assembleDebug'], androidDir)
+const linuxRoot = !isWin
+  ? process.env.ISTEATHAN_LINUX_DIR || join(home, 'work', 'isteathan')
+  : root
+const buildRoot = !isWin && existsSync(join(linuxRoot, 'package.json')) ? linuxRoot : root
+const buildAndroidDir = join(buildRoot, 'android')
+const builtApkOnBuildRoot = release
+  ? join(buildAndroidDir, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
+  : join(buildAndroidDir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+
+// On Linux /mnt/E (NTFS noexec): web build via run.mjs → ~/work/isteathan
+if (!isWin) {
+  await run(process.execPath, [join(root, 'scripts', 'run.mjs'), 'vite:build'])
+  // Keep signing key available in the Linux work copy (rsync excludes it).
+  mkdirSync(join(buildAndroidDir, 'keystore'), { recursive: true })
+  for (const name of ['keystore.properties', 'keystore/khurooj-release.jks']) {
+    const from = join(androidDir, name)
+    const to = join(buildAndroidDir, name)
+    if (existsSync(from)) {
+      mkdirSync(dirname(to), { recursive: true })
+      copyFileSync(from, to)
+    }
+  }
+  await run('npx', ['cap', 'sync', 'android'], buildRoot)
+  const gradleBin = join(buildAndroidDir, gradle)
+  try {
+    const { chmodSync } = await import('node:fs')
+    chmodSync(gradleBin, 0o755)
+  } catch {
+    // ignore chmod failures
+  }
+  await run(gradleBin, [release ? 'assembleRelease' : 'assembleDebug'], buildAndroidDir)
+} else {
+  await run('npm.cmd', ['run', 'vite:build'])
+  await run('npx.cmd', ['cap', 'sync', 'android'])
+  await run(join(androidDir, gradle), [release ? 'assembleRelease' : 'assembleDebug'], androidDir)
+}
 
 mkdirSync(outDir, { recursive: true })
-copyFileSync(builtApk, destApk)
+const apkSource = existsSync(builtApkOnBuildRoot) ? builtApkOnBuildRoot : builtApk
+copyFileSync(apkSource, destApk)
 console.log(`\nAPK ready (${release ? 'release' : 'debug'}):\n  ${destApk}\n`)
 console.log('Install over the existing app (same signature). Do not uninstall.\n')
 

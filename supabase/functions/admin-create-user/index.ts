@@ -56,20 +56,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    let national_id: string | null = null;
+    let national_id: string | null = null
     let username: string | null = body.username
       ? String(body.username).trim().toLowerCase()
       : email.split("@")[0];
     let phone: string | null = body.phone ? String(body.phone) : null;
 
-    if (role === "PARENT") {
-      national_id = String(body.national_id ?? "").trim();
-      if (!national_id) {
-        return Response.json({ error: "national_id required" }, { status: 400, headers: cors });
-      }
-    } else if (role === "CLASS_STAFF") {
+    if (role === "CLASS_STAFF") {
       if (!body.class_id) {
         return Response.json({ error: "يجب تعيين فصل" }, { status: 400, headers: cors });
+      }
+    } else if (role === "GATE_OFFICER") {
+      if (!username) {
+        return Response.json({ error: "username required" }, { status: 400, headers: cors });
       }
     } else if (role !== "ADMIN") {
       return Response.json({ error: "Invalid role" }, { status: 400, headers: cors });
@@ -93,7 +92,7 @@ Deno.serve(async (req) => {
       full_name,
       role,
       national_id,
-      username: role === "PARENT" ? null : username,
+      username,
       phone,
       is_active: true,
     });

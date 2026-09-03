@@ -76,7 +76,7 @@ async function invokeDelete(body: Record<string, unknown>): Promise<DeleteUsersR
   )
 }
 
-/** Delete one CLASS_STAFF or PARENT account (Auth + profile + related cleanup). */
+/** Delete one staff, gate, or admin account (Auth + profile + related cleanup). */
 export async function deleteManagedUser(userId: string): Promise<DeleteUsersResult> {
   if (!userId.trim()) throw new Error('معرّف المستخدم مطلوب.')
   return invokeDelete({ user_id: userId.trim() })

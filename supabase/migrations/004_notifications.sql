@@ -1,4 +1,5 @@
--- Push subscriptions for Web Push (background notifications on mobile).
+-- إشعارات Push
+
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -22,5 +23,4 @@ create policy push_subscriptions_own on public.push_subscriptions
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Admins / service role can read all via service key (bypasses RLS).
 grant select, insert, update, delete on public.push_subscriptions to authenticated;

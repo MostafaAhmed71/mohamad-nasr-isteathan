@@ -118,7 +118,7 @@ self.addEventListener('push', (event) => {
     renotify: true,
     dir: 'rtl',
     lang: 'ar',
-    data: { url: data.url ?? '/parent/requests' },
+    data: { url: data.url ?? '/display/class' },
     requireInteraction: true,
   }
 
@@ -128,7 +128,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const targetUrl =
-    (event.notification.data as { url?: string } | undefined)?.url ?? '/parent/requests'
+    (event.notification.data as { url?: string } | undefined)?.url ?? '/display/class'
   event.waitUntil(
     (async () => {
       const allClients = await self.clients.matchAll({

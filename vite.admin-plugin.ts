@@ -53,16 +53,13 @@ async function deleteManagedProfile(admin: SupabaseClient, userId: string, calle
   if (!profile) {
     return { ok: false as const, error: 'الحساب غير موجود.' }
   }
-  if (profile.role !== 'CLASS_STAFF' && profile.role !== 'PARENT') {
-    return { ok: false as const, error: 'يُسمح بحذف حسابات الفصول وأولياء الأمور فقط.' }
+  if (profile.role !== 'CLASS_STAFF' && profile.role !== 'GATE_OFFICER') {
+    return { ok: false as const, error: 'يُسمح بحذف حسابات الفصول والمناوبين فقط.' }
   }
 
   if (profile.role === 'CLASS_STAFF') {
     await admin.from('classes').update({ staff_profile_id: null }).eq('staff_profile_id', userId)
     await admin.from('permission_requests').update({ decided_by: null }).eq('decided_by', userId)
-  } else {
-    await admin.from('students').update({ guardian_id: null }).eq('guardian_id', userId)
-    await admin.from('permission_requests').delete().eq('guardian_id', userId)
   }
   // Best-effort: table may be missing if migration 008 not applied yet.
   await admin.from('push_subscriptions').delete().eq('user_id', userId)

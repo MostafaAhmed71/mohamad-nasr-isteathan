@@ -17,10 +17,14 @@ if [[ "$SRC" == "$DEST" ]]; then
   exit $?
 fi
 
-rsync -a \
+rsync -a --delete \
   --exclude node_modules \
   --exclude dist \
   --exclude .git \
+  --exclude android/keystore \
+  --exclude android/keystore.properties \
+  --exclude android/app/build \
+  --exclude apk \
   "$SRC/" "$DEST/"
 
 if [[ -f "$SRC/.env" && "$SRC/.env" != "$DEST/.env" ]]; then

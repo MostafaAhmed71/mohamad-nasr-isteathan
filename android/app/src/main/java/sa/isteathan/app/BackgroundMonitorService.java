@@ -187,17 +187,12 @@ public class BackgroundMonitorService extends Service {
         String classId = prefs.getString("classId", "");
         String userId = prefs.getString("userId", "");
         if ("CLASS_STAFF".equals(role) && classId.isEmpty()) return;
-        if ("PARENT".equals(role) && userId.isEmpty()) return;
-        if (!"CLASS_STAFF".equals(role) && !"PARENT".equals(role)) return;
+        if (!"CLASS_STAFF".equals(role)) return;
 
-        JSONArray rows = fetchRequests(prefs, role, classId, userId);
+        JSONArray rows = fetchRequests(prefs, classId);
         if (rows == null) return;
 
-        if ("CLASS_STAFF".equals(role)) {
-            handleStaff(rows);
-        } else {
-            handleParent(rows);
-        }
+        handleStaff(rows);
         primed = true;
     }
 
@@ -223,30 +218,6 @@ public class BackgroundMonitorService extends Service {
         knownPending.clear();
         knownPending.addAll(current);
         if (overlay != null) overlay.show(names, fresh);
-    }
-
-    private void handleParent(JSONArray rows) throws Exception {
-        for (int i = 0; i < rows.length(); i++) {
-            JSONObject row = rows.getJSONObject(i);
-            String id = row.optString("id", "");
-            String status = row.optString("status", "");
-            if (id.isEmpty()) continue;
-            String previous = knownStatuses.put(id, status);
-            if (!primed || previous == null || previous.equals(status)) continue;
-            if ("APPROVED".equals(status)) {
-                showAlert(
-                    getString(R.string.alert_approved_title),
-                    getString(R.string.alert_approved_body, studentName(row)),
-                    id.hashCode()
-                );
-            } else if ("REJECTED".equals(status)) {
-                showAlert(
-                    getString(R.string.alert_rejected_title),
-                    getString(R.string.alert_rejected_body, studentName(row)),
-                    id.hashCode()
-                );
-            }
-        }
     }
 
     private String studentName(JSONObject row) {
@@ -275,11 +246,7 @@ public class BackgroundMonitorService extends Service {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(Notification.DEFAULT_ALL)
             .setAutoCancel(true)
-            .setContentIntent(openAppIntent(
-                "PARENT".equals(getSharedPreferences(PREFS, MODE_PRIVATE).getString("role", ""))
-                    ? MainActivity.PARENT_REQUESTS_PATH
-                    : MainActivity.CLASS_DISPLAY_PATH
-            ))
+            .setContentIntent(openAppIntent(MainActivity.CLASS_DISPLAY_PATH))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
         nm.notify(Math.abs(id == Integer.MIN_VALUE ? 1 : id), notification);
@@ -287,18 +254,14 @@ public class BackgroundMonitorService extends Service {
 
     private JSONArray fetchRequests(
         SharedPreferences prefs,
-        String role,
-        String classId,
-        String userId
+        String classId
     ) throws Exception {
         String base = stripSlash(prefs.getString("supabaseUrl", ""));
         String anon = prefs.getString("anonKey", "");
         String access = prefs.getString("accessToken", "");
         if (base.isEmpty() || anon.isEmpty() || access.isEmpty()) return null;
 
-        String filter = "CLASS_STAFF".equals(role)
-            ? "class_id=eq." + enc(classId) + "&status=eq.PENDING"
-            : "guardian_id=eq." + enc(userId);
+        String filter = "class_id=eq." + enc(classId) + "&status=eq.PENDING";
         String url =
             base +
             "/rest/v1/permission_requests?select=id,status,student_id,students(full_name)&" +

@@ -3,6 +3,7 @@ import { isDisplayLate } from '../lib/displayBoard'
 import {
   classLabel,
   formatDateTime,
+  requestOriginLabel,
   type PermissionRequest,
   type RequestStatus,
 } from '../lib/types'
@@ -60,7 +61,7 @@ export function DisplayNowCalling({
   approving?: boolean
 }) {
   const name = request.students?.full_name ?? 'طالب'
-  const guardian = request.profiles?.full_name ?? '—'
+  const origin = requestOriginLabel(request)
   const klass = classText(request)
   const late = isDisplayLate(request, now)
   const meta = displayStatusMeta(request.status, late)
@@ -83,7 +84,7 @@ export function DisplayNowCalling({
           <div className="rx-call__meta">
             <span>{klass}</span>
             <span className="rx-call__dot" aria-hidden />
-            <span>ولي الأمر: {guardian}</span>
+            <span>{origin}</span>
             <span className="rx-call__dot" aria-hidden />
             <span>{when}</span>
           </div>
